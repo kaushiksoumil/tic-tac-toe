@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Soumil's Tic-Tac-Toe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="scoreboard-wrap">
+      <aside class="scoreboard" aria-label="Wins this session" aria-live="polite">
+        <h2 class="scoreboard__heading">Score</h2>
+        <dl class="scoreboard__list">
+          <div class="scoreboard__row scoreboard__row--p1">
+            <dt>Player 1</dt>
+            <dd id="score-p1">0</dd>
+          </div>
+          <div class="scoreboard__row scoreboard__row--p2">
+            <dt>Player 2</dt>
+            <dd id="score-p2">0</dd>
+          </div>
+        </dl>
+      </aside>
+      <button type="button" id="reset-scores" class="scoreboard-reset">
+        Reset scores
+      </button>
+    </div>
+    <div id="app">
+      <header class="header">
+        <h1 class="title">Soumil's Tic-Tac-Toe</h1>
+        <p class="subtitle">Local two-player — press <kbd>R</kbd> for new game</p>
+      </header>
+      <p id="hud" class="hud hud--p1" aria-live="polite">Player 1's turn</p>
+      <div id="board-wrap" class="board-wrap">
+        <div id="board" class="board" role="grid" aria-label="Tic-tac-toe board"></div>
+      </div>
+      <div class="actions">
+        <button type="button" id="restart" class="btn">New game</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
