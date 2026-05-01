@@ -37,9 +37,11 @@ VITE_WS_URL=ws://localhost:8787
 npm run dev
 ```
 
-Then open **two tabs** or two browsers to the dev URL — the subtitle switches to realtime mode once `VITE_WS_URL` is set.
+Then open **two tabs** or two browsers to the dev URL — the subtitle switches to realtime mode once `VITE_WS_URL` is set. Each player is prompted for a **display name** once; the HUD uses those names for whose turn it is.
 
 You can combine both processes with `npm run dev:online`; you still need `VITE_WS_URL` in `.env.local`.
+
+**Note:** Snapshots include `names` and **`scores`** (wins across finished games). The scoreboard stays visible online; **Reset scores** sends `resetScores` to the server. Deploy the **frontend and** `server/` together whenever the realtime wire format changes.
 
 **Hosting:** keep the SPA on Vercel/Netlify, and run **`npm start`** (same as `tsx server/index.ts`) on a small Node-capable host (Railway/Render/Fly, etc.). The browser must use **`wss://...`** matching your site (`https://`), so add **`VITE_WS_URL`** to the frontend build env on Vercel.
 

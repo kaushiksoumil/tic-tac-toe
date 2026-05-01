@@ -1,6 +1,13 @@
 import "./style.css";
 import { applyMove, createGame, type GameState } from "./engine.js";
 import type { Player } from "./rules.js";
+import {
+  DEFAULT_DISPLAY_NAMES,
+  defaultNameForSeat,
+  normalizePlayerName,
+  type PlayerDisplayNames,
+} from "./player-names.js";
+import { promptLocalPlayerNames, promptOnlinePlayerName } from "./player-names-modal.js";
 import { unlockAudio, playDrawSound, playMoveSound, playWinSound } from "./audio.js";
 import { createEffects } from "./effects.js";
 import { createBoardView, hudMessage } from "./ui.js";
@@ -14,7 +21,13 @@ const scoreP1El = document.querySelector<HTMLElement>("#score-p1")!;
 const scoreP2El = document.querySelector<HTMLElement>("#score-p2")!;
 const resetScoresBtn = document.querySelector<HTMLButtonElement>("#reset-scores")!;
 const subtitleEl = document.querySelector<HTMLElement>(".subtitle");
-const scoreboardWrap = document.querySelector<HTMLElement>(".scoreboard-wrap");
+
+function applyScoreRowLabels(names: PlayerDisplayNames) {
+  const dtX = document.querySelector(".scoreboard__row--p1 dt");
+  const dtO = document.querySelector(".scoreboard__row--p2 dt");
+  if (dtX) dtX.textContent = names.X;
+  if (dtO) dtO.textContent = names.O;
+}
 
 function findChangedCell(prev: GameState | null, next: GameState): number | undefined {
   if (!prev) return undefined;
@@ -25,6 +38,13 @@ function findChangedCell(prev: GameState | null, next: GameState): number | unde
 }
 
 function startLocalMode() {
+  void promptLocalPlayerNames().then((displayNames) => {
+    applyScoreRowLabels(displayNames);
+    runLocalGame(displayNames);
+  });
+}
+
+function runLocalGame(displayNames: PlayerDisplayNames) {
   let state: GameState = createGame();
   let wins: Record<Player, number> = { X: 0, O: 0 };
   const effects = createEffects({ board: boardEl, boardWrap });
@@ -38,7 +58,7 @@ function startLocalMode() {
   }
 
   function applyHud() {
-    const { text, className } = hudMessage(state);
+    const { text, className } = hudMessage(state, { names: displayNames });
     hudEl.textContent = text;
     hudEl.className = className;
   }
@@ -121,17 +141,17 @@ function startLocalMode() {
 }
 
 function startOnlineMode(wsUrl: string) {
-  scoreboardWrap?.classList.add("scoreboard-wrap--hidden");
-  resetScoresBtn.hidden = true;
   if (subtitleEl) {
     subtitleEl.innerHTML =
-      "Realtime · one shared room — first tab is Player 1, second is Player 2 — <kbd>R</kbd> resets for everyone";
+      "Realtime · one shared room — first tab is Player 1, second is Player 2 — <kbd>R</kbd> resets for everyone — set your name when prompted";
   }
 
   let state: GameState = createGame();
   let mySeat: Player = "X";
   let players = 1;
+  let serverNames: PlayerDisplayNames = { ...DEFAULT_DISPLAY_NAMES };
   let prevState: GameState | null = null;
+  let promptedForOnlineName = false;
   const effects = createEffects({ board: boardEl, boardWrap });
   let audioUnlocked = false;
   let wsConn: WebSocket | null = null;
@@ -144,7 +164,10 @@ function startOnlineMode(wsUrl: string) {
   }
 
   function applyHud() {
-    const { text, className } = hudMessage(state, { players, you: mySeat });
+    const { text, className } = hudMessage(state, {
+      names: serverNames,
+      online: { players, you: mySeat },
+    });
     hudEl.textContent = text;
     hudEl.className = className;
   }
@@ -191,6 +214,11 @@ function startOnlineMode(wsUrl: string) {
     state = next;
     mySeat = payload.you;
     players = payload.players;
+    serverNames = payload.names ?? { ...DEFAULT_DISPLAY_NAMES };
+    const scores = payload.scores ?? { X: 0, O: 0 };
+    scoreP1El.textContent = String(scores.X);
+    scoreP2El.textContent = String(scores.O);
+    applyScoreRowLabels(serverNames);
 
     const cell = boardView.render(state, { lastMove: moveIndex, animateLast: moveIndex !== undefined });
     if (moveIndex !== undefined && cell && state.status === "playing") {
@@ -198,6 +226,19 @@ function startOnlineMode(wsUrl: string) {
     }
     effects.syncBoardVisuals(state);
     applyOnlineCellLocks();
+
+    if (!promptedForOnlineName) {
+      promptedForOnlineName = true;
+      void promptOnlinePlayerName(payload.you).then((name) => {
+        const fb = defaultNameForSeat(payload.you);
+        const normalized = normalizePlayerName(name, fb);
+        serverNames = { ...serverNames, [payload.you]: normalized };
+        applyScoreRowLabels(serverNames);
+        if (wsConn?.readyState === WebSocket.OPEN) {
+          wsConn.send(JSON.stringify({ type: "setName", name: normalized }));
+        }
+      });
+    }
 
     if (prevWasPlaying && state.status === "win") {
       playMoveSound(state.currentPlayer);
@@ -243,9 +284,16 @@ function startOnlineMode(wsUrl: string) {
       applyHud();
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (ev) => {
       restartBtn.disabled = true;
-      hudEl.textContent = "Disconnected — refresh the page to reconnect.";
+      const why =
+        ev.code === 1006 && !ev.reason
+          ? " (often bad wss URL, TLS, inactive host, or 403 blocking the upgrade)"
+          : "";
+      hudEl.textContent =
+        ev.code === 1000 && !ev.reason
+          ? "Disconnected — refresh the page to reconnect."
+          : `Disconnected (code ${ev.code}${ev.reason ? ` — ${ev.reason}` : ""}) — refresh.${why}`;
       hudEl.className = "hud hud--error";
       for (const c of boardView.cells) {
         c.disabled = true;
@@ -253,7 +301,7 @@ function startOnlineMode(wsUrl: string) {
     });
 
     ws.addEventListener("error", () => {
-      /* close handler surfaces reconnect message */
+      console.warn("[realtime] WebSocket error; URL:", wsUrl);
     });
   }
 
@@ -265,6 +313,12 @@ function startOnlineMode(wsUrl: string) {
   restartBtn.addEventListener("click", () => {
     void ensureAudio();
     sendReset();
+  });
+
+  resetScoresBtn.addEventListener("click", () => {
+    if (wsConn?.readyState === WebSocket.OPEN) {
+      wsConn.send(JSON.stringify({ type: "resetScores" }));
+    }
   });
 
   window.addEventListener("keydown", (e) => {

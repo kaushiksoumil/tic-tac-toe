@@ -1,4 +1,5 @@
 import type { GameState } from "./engine.js";
+import { DEFAULT_DISPLAY_NAMES, type PlayerDisplayNames } from "./player-names.js";
 import type { Cell, Player } from "./rules.js";
 
 export type BoardHandlers = {
@@ -10,9 +11,10 @@ export type OnlineHudCtx = {
   you: Player;
 };
 
-export function playerName(p: Player): string {
-  return p === "X" ? "Player 1" : "Player 2";
-}
+export type HudOptions = {
+  names: PlayerDisplayNames;
+  online?: OnlineHudCtx;
+};
 
 function hudPlayerClass(p: Player): string {
   return p === "X" ? "p1" : "p2";
@@ -79,13 +81,13 @@ export function createBoardView(container: HTMLElement, handlers: BoardHandlers)
   return { cells, render };
 }
 
-export function hudMessage(
-  state: GameState,
-  online?: OnlineHudCtx,
-): { text: string; className: string } {
+export function hudMessage(state: GameState, opts?: HudOptions): { text: string; className: string } {
+  const names = opts?.names ?? DEFAULT_DISPLAY_NAMES;
+  const online = opts?.online;
+
   if (online && online.players < 2) {
     return {
-      text: "Waiting for a second player — open this page in another tab or browser.",
+      text: `${names[online.you]} is here — waiting for a second player. Open this page in another browser or tab.`,
       className: "hud hud--waiting",
     };
   }
@@ -94,12 +96,12 @@ export function hudMessage(
     if (online) {
       const youWon = state.currentPlayer === online.you;
       return {
-        text: youWon ? "You win!" : `${playerName(state.currentPlayer)} wins!`,
+        text: youWon ? "You win!" : `${names[state.currentPlayer]} wins!`,
         className: "hud hud--win",
       };
     }
     return {
-      text: `${playerName(state.currentPlayer)} wins!`,
+      text: `${names[state.currentPlayer]} wins!`,
       className: "hud hud--win",
     };
   }
@@ -112,13 +114,13 @@ export function hudMessage(
   if (online) {
     const isYours = turn === online.you;
     return {
-      text: isYours ? "Your turn" : `${playerName(turn)}'s turn`,
+      text: isYours ? "Your turn" : `${names[turn]}'s turn`,
       className: `hud hud--${hudPlayerClass(turn)}`,
     };
   }
 
   return {
-    text: `${playerName(turn)}'s turn`,
+    text: `${names[turn]}'s turn`,
     className: `hud hud--${hudPlayerClass(turn)}`,
   };
 }

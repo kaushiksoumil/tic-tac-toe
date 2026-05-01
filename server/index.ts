@@ -3,12 +3,21 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { createGame, applyMove, type GameState } from "../src/engine.js";
 import type { Player } from "../src/rules.js";
-import type { ClientToServer, ServerSnapshot } from "../src/realtime.js";
+import {
+  DEFAULT_DISPLAY_NAMES,
+  normalizePlayerName,
+  type PlayerDisplayNames,
+} from "../src/player-names.js";
+import type { ClientToServer, ServerSnapshot, SessionScores } from "../src/realtime.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 
+const ZERO_SCORES = (): SessionScores => ({ X: 0, O: 0 });
+
 const clients = new Map<WebSocket, Player>();
 let game: GameState = createGame();
+let displayNames: PlayerDisplayNames = { ...DEFAULT_DISPLAY_NAMES };
+let sessionWins: SessionScores = ZERO_SCORES();
 
 function rawToString(data: RawData): string | null {
   if (typeof data === "string") return data;
@@ -26,6 +35,8 @@ function parseClientMsg(data: RawData): ClientToServer | null {
     if (typeof raw !== "object" || raw === null) return null;
     const o = raw as Record<string, unknown>;
     if (o.type === "reset") return { type: "reset" };
+    if (o.type === "resetScores") return { type: "resetScores" };
+    if (o.type === "setName" && typeof o.name === "string") return { type: "setName", name: o.name };
     if (o.type === "move") {
       if (typeof o.index === "number" && Number.isInteger(o.index)) {
         return { type: "move", index: o.index };
@@ -43,6 +54,8 @@ function sendSnapshot(ws: WebSocket, you: Player, error?: string) {
     you,
     game,
     players: clients.size,
+    names: { ...displayNames },
+    scores: { ...sessionWins },
   };
   if (error) msg.error = error;
   if (ws.readyState === WebSocket.OPEN) {
@@ -59,6 +72,8 @@ function broadcast() {
 function handleDisconnect(ws: WebSocket) {
   clients.delete(ws);
   game = createGame();
+  displayNames = { ...DEFAULT_DISPLAY_NAMES };
+  sessionWins = ZERO_SCORES();
   const remaining = [...clients.keys()];
   if (remaining.length === 1) {
     clients.set(remaining[0], "X");
@@ -78,6 +93,22 @@ function handleMessage(ws: WebSocket, data: RawData) {
 
   if (msg.type === "reset") {
     game = createGame();
+    broadcast();
+    return;
+  }
+
+  if (msg.type === "setName") {
+    const fallback = DEFAULT_DISPLAY_NAMES[seat];
+    displayNames = {
+      ...displayNames,
+      [seat]: normalizePlayerName(msg.name, fallback),
+    };
+    broadcast();
+    return;
+  }
+
+  if (msg.type === "resetScores") {
+    sessionWins = ZERO_SCORES();
     broadcast();
     return;
   }
@@ -104,6 +135,12 @@ function handleMessage(ws: WebSocket, data: RawData) {
   }
 
   game = result.state;
+  if (game.status === "win") {
+    sessionWins = {
+      ...sessionWins,
+      [game.currentPlayer]: sessionWins[game.currentPlayer] + 1,
+    };
+  }
   broadcast();
 }
 
