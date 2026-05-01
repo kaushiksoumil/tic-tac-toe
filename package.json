@@ -4,13 +4,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "tsx server/index.ts",
+    "start": "tsx server/index.ts",
+    "dev:online": "concurrently -k \"vite\" \"npm run server\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
     "typescript": "~5.6.2",
     "vite": "^6.0.0",
     "vitest": "^2.1.0"
+  },
+  "dependencies": {
+    "tsx": "^4.21.0",
+    "ws": "^8.20.0"
   }
 }

@@ -1,6 +1,6 @@
 # Soumil's Tic-Tac-Toe (browser)
 
-Local two-player tic-tac-toe in the browser with light motion effects and Web Audio sound effects. Core rules live in pure modules so the same logic can be reused on a server later.
+Local two-player tic-tac-toe in the browser with light motion effects and Web Audio sound effects. Core rules live in pure modules (`src/rules.ts`, `src/engine.ts`) so the browser and the realtime server share the same `applyMove` logic.
 
 ## Run locally
 
@@ -9,7 +9,39 @@ npm install
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+Open the URL Vite prints (usually `http://localhost:5173`). This mode is **local two-player only** — two people at one keyboard unless you pair it with the server below.
+
+## Two browsers · one shared room (WebSocket)
+
+The server in `server/index.ts` exposes a **single global room**: the first connection is Player 1 (`X`), the second is Player 2 (`O`). Starts are rejected with “room full”. Health check: HTTP `GET /health` → `ok`.
+
+**Terminal A — realtime server**
+
+```bash
+npm run server
+```
+
+Listens on `PORT` (default **8787**).
+
+**Client — point Vite at the socket**
+
+Create `.env.local` in the project root:
+
+```bash
+VITE_WS_URL=ws://localhost:8787
+```
+
+**Terminal B — front end**
+
+```bash
+npm run dev
+```
+
+Then open **two tabs** or two browsers to the dev URL — the subtitle switches to realtime mode once `VITE_WS_URL` is set.
+
+You can combine both processes with `npm run dev:online`; you still need `VITE_WS_URL` in `.env.local`.
+
+**Hosting:** keep the SPA on Vercel/Netlify, and run **`npm start`** (same as `tsx server/index.ts`) on a small Node-capable host (Railway/Render/Fly, etc.). The browser must use **`wss://...`** matching your site (`https://`), so add **`VITE_WS_URL`** to the frontend build env on Vercel.
 
 ## Build static files
 

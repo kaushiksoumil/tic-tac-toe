@@ -41,6 +41,10 @@ body {
   min-width: 9.5rem;
 }
 
+.scoreboard-wrap--hidden {
+  display: none !important;
+}
+
 .scoreboard {
   margin: 0;
   padding: 0.65rem 0.85rem;
@@ -182,6 +186,15 @@ body {
 
 .hud--draw {
   color: var(--muted);
+}
+
+.hud--waiting {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.hud--error {
+  color: #fca5a5;
 }
 
 .board-wrap {

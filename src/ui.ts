@@ -5,6 +5,11 @@ export type BoardHandlers = {
   onCellClick: (index: number) => void;
 };
 
+export type OnlineHudCtx = {
+  players: number;
+  you: Player;
+};
+
 export function playerName(p: Player): string {
   return p === "X" ? "Player 1" : "Player 2";
 }
@@ -74,17 +79,44 @@ export function createBoardView(container: HTMLElement, handlers: BoardHandlers)
   return { cells, render };
 }
 
-export function hudMessage(state: GameState): { text: string; className: string } {
+export function hudMessage(
+  state: GameState,
+  online?: OnlineHudCtx,
+): { text: string; className: string } {
+  if (online && online.players < 2) {
+    return {
+      text: "Waiting for a second player — open this page in another tab or browser.",
+      className: "hud hud--waiting",
+    };
+  }
+
   if (state.status === "win") {
+    if (online) {
+      const youWon = state.currentPlayer === online.you;
+      return {
+        text: youWon ? "You win!" : `${playerName(state.currentPlayer)} wins!`,
+        className: "hud hud--win",
+      };
+    }
     return {
       text: `${playerName(state.currentPlayer)} wins!`,
       className: "hud hud--win",
     };
   }
+
   if (state.status === "draw") {
     return { text: "Draw — board full", className: "hud hud--draw" };
   }
+
   const turn = state.currentPlayer;
+  if (online) {
+    const isYours = turn === online.you;
+    return {
+      text: isYours ? "Your turn" : `${playerName(turn)}'s turn`,
+      className: `hud hud--${hudPlayerClass(turn)}`,
+    };
+  }
+
   return {
     text: `${playerName(turn)}'s turn`,
     className: `hud hud--${hudPlayerClass(turn)}`,
